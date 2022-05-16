@@ -25,6 +25,7 @@ const cors = require("cors");
 const usersRouter = require("./src/routers/users.router");
 const sessionsRouter = require("./src/routers/sessions.router");
 const { errorHandler } = require("./src/middlewares");
+const passengersRouter = require("./src/routers/passengers.router");
 
 const app = express();
 const DBURI = `mongodb://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}`;
@@ -62,6 +63,7 @@ mongoose
     // ROUTERS
     app.use("/users", usersRouter);
     app.use("/sessions", sessionsRouter);
+    app.use('/passengers', passengersRouter)
 
     // ERROR HANDLING 
     app.use(errorHandler)

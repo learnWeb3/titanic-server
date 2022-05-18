@@ -78,18 +78,19 @@ const validateContainsNumber = (value) => {
 
 const validateNotEmpty = (value) => {
   const errors = [];
-  switch(typeof value){
+  switch (typeof value) {
     case "string":
       (!value || isEmpty(value)) && errors.push("value must not be empty");
       break;
     case "object":
-      if(Array.isArray(value)){
-       ( !value || !value.length) && errors.push("value must not be empty");
-      }else{
-        (!value || !Object.keys(value).length) && errors.push("value must not be empty");
+      if (Array.isArray(value)) {
+        (!value || !value.length) && errors.push("value must not be empty");
+      } else {
+        (!value || !Object.keys(value).length) &&
+          errors.push("value must not be empty");
       }
       break;
-    default: 
+    default:
       errors.push("value type is invalid");
       break;
   }
@@ -146,6 +147,27 @@ const mergeValidate = (value, validations) => {
   };
 };
 
+const validateStatsType = (value) => {
+  const errors = [];
+  const authorizedParamsValues = {
+    sexes: true,
+    classes: true,
+    ages: true,
+  };
+  const authorizedQueryParamsValuesArr = Object.keys(authorizedParamsValues);
+  if (!authorizedParamsValues[value]) {
+    errors.push(
+      `Invalid parameter value, must be one of ${authorizedQueryParamsValuesArr.join(
+        ", "
+      )}`
+    );
+  }
+  return {
+    errors,
+    valid: errors.length === 0,
+  };
+};
+
 const validatePassword = (value) =>
   mergeValidate(value, [
     validateNotNull,
@@ -176,5 +198,6 @@ module.exports = {
   validateEmail,
   validatePassword,
   validateNumeric,
-  validateBoolean
+  validateBoolean,
+  validateStatsType,
 };

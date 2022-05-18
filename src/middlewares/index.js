@@ -186,6 +186,31 @@ function authorizeBodyParams(authorizedParametersObject = {}) {
   };
 }
 
+function validateQueryParams(parametersValidationMapping = {}) {
+  return function (req, res, next) {
+    const { query } = req;
+    if (query) {
+      const errors = [];
+      for (const key in query) {
+        if (parametersValidationMapping.hasOwnProperty(key)) {
+          const { errors: parameterErrors, valid: parameterIsValid } =
+            parametersValidationMapping[key](query[key]);
+          if (!parameterIsValid) {
+            errors.push(`${key}: ${parameterErrors.join(", ")}`);
+          }
+        }
+      }
+      if (errors.length) {
+        return next(
+          new BadRequestError(`validations errors: ${errors.join(", ")}`)
+        );
+      }
+      return next();
+    }
+    return next();
+  };
+}
+
 function validateBodyParams(parametersValidationMapping = {}) {
   return function (req, res, next) {
     const { body } = req;
@@ -302,4 +327,5 @@ module.exports = {
   validateBodyParams,
   authorizeQueryParams,
   parseQueryParams,
+  validateQueryParams,
 };

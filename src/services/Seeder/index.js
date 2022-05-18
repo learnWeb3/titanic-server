@@ -3,9 +3,7 @@ class Seeder {
     this.passengerModel = passengerModel;
     this.passengersData = passengersData;
   }
-  async clear(){
-    return await this.passengerModel.collection.drop()
-  }
+  
   async seed() {
     const registeredPassengers = [];
     const errorsPassengers = [];

@@ -12,12 +12,12 @@ const { DB_USERNAME, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME } = process.env;
 const mongoose = require("mongoose");
 const { readFileSync } = require("fs");
 const Seeder = require("../services/Seeder");
-const Stats = require("../services/Stats"); 
+const Stats = require("../services/Stats");
 
 const DBURI = `mongodb://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}`;
 mongoose.connect(DBURI).then(async (connexion) => {
   const Passenger = require("../models/passenger.model");
-  const Analysis = require('../models/analysis.model')
+  const Analysis = require("../models/analysis.model");
   const passengersData = readFileSync(
     join(cwd(), "src", "services", "Seeder", "assets", "passengers.json")
   ).toString("utf8");
@@ -50,40 +50,42 @@ mongoose.connect(DBURI).then(async (connexion) => {
       embarked: Embarked,
     })
   );
+  await Passenger.collection.drop();
+  await Analysis.collection.drop();
   const seeder = new Seeder(Passenger, passengersDataArr);
-  await seeder.clear();
   await seeder
     .seed()
-    .then(({ registeredPassengers, errorsPassengers }) => {
+    .then(async ({ registeredPassengers, errorsPassengers }) => {
       console.log(`seed passengers data completed with success`);
       console.log(
         `seed stats: errorsCount ${errorsPassengers.length}, registeredCount: ${registeredPassengers.length} `
       );
       const STAT = new Stats(Passenger);
 
-      const passengerCount = await Passenger.count()
+      const passengerCount = await Passenger.count();
       const passengersSexes = await STAT.passengerGenders();
-      const passengersClasses =  await STAT.passengerClasses();
+      const passengersClasses = await STAT.passengerClasses();
 
       const ageDistribution = await STAT._ageDistribution({});
-      const sexes =  await STAT.genderAnalysis(passengersSexes)
-      const classes = await STAT.classesAnalysis(passengersClasses)
+      const sexes = await STAT.genderAnalysis(passengersSexes);
+      const classes = await STAT.classesAnalysis(passengersClasses);
 
       const newAnalysis = new Analysis({
         count: passengerCount,
         ages: {
-          ageDistribution
+          ageDistribution,
         },
         classes,
         sexes,
       });
 
-      await newAnalysis.save()
+      await newAnalysis.save();
 
-      process.exit(0)
+      console.log(`analysis registered with success`);
+
+      process.exit(0);
     })
-    .catch((error) => `error while seeding passengers data`);
-
-
-
+    .catch((error) =>
+      console.log(`error while seeding passengers data`, error)
+    );
 });

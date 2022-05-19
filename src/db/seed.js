@@ -51,7 +51,6 @@ mongoose.connect(DBURI).then(async (connexion) => {
     })
   );
   await Passenger.collection.drop();
-  await Analysis.collection.drop();
   const seeder = new Seeder(Passenger, passengersDataArr);
   await seeder
     .seed()
@@ -60,13 +59,33 @@ mongoose.connect(DBURI).then(async (connexion) => {
       console.log(
         `seed stats: errorsCount ${errorsPassengers.length}, registeredCount: ${registeredPassengers.length} `
       );
+
+      await Analysis.collection.drop();
       const STAT = new Stats(Passenger);
 
       const passengerCount = await Passenger.count();
       const passengersSexes = await STAT.passengerGenders();
       const passengersClasses = await STAT.passengerClasses();
 
-      const ageDistribution = await STAT._ageDistribution({});
+      const ageDistribution = await STAT._ageDistribution({
+        age: {
+          $gte: 1,
+        },
+      });
+      const ageDistributionDied = await STAT._ageDistribution({
+        age: {
+          $gte: 1,
+        },
+        survived: false,
+      });
+
+      const ageDistributionSurvived = await STAT._ageDistribution({
+        age: {
+          $gte: 1,
+        },
+        survived: true,
+      });
+
       const sexes = await STAT.genderAnalysis(passengersSexes);
       const classes = await STAT.classesAnalysis(passengersClasses);
 
@@ -74,6 +93,8 @@ mongoose.connect(DBURI).then(async (connexion) => {
         count: passengerCount,
         ages: {
           ageDistribution,
+          ageDistributionDied,
+          ageDistributionSurvived,
         },
         classes,
         sexes,

@@ -64,4 +64,31 @@ PassengerSchema.statics.findAll = async function () {
   return await this.find({});
 };
 
+PassengerSchema.statics.survivalProbability = async function (
+  data = { sex: "male", ageMax: 40, ageMin: 30, class: 3 }
+) {
+  const { sex, ageMax, ageMin, class: pClass } = data;
+  const totalPassengers = await this.count({
+    sex,
+    class: pClass,
+    age: {
+      $gte: ageMin,
+      $lte: ageMax,
+    },
+  });
+  const passengersCount = await this.count({
+    sex,
+    class: pClass,
+    age: {
+      $gte: ageMin,
+      $lte: ageMax,
+    },
+    survived: true,
+  });
+
+  return {
+    survival: passengersCount / totalPassengers,
+  };
+};
+
 module.exports = model("Passenger", PassengerSchema);

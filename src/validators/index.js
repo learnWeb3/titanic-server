@@ -100,6 +100,7 @@ const validateNotEmpty = (value) => {
   };
 };
 
+
 const validateNotNull = (value) => {
   const errors = [];
   (value === null || value === "" || value === 0) &&
@@ -146,6 +147,38 @@ const mergeValidate = (value, validations) => {
     valid: mergedErrors.length === 0,
   };
 };
+
+const validateSex = (value) => {
+  const errors = [];
+  const authorizedValues = {
+    male: true,
+    female: true
+  }
+  if(!authorizedValues[value]){
+    errors.push(`invalid value for sex : values must be one of ${Object.keys(authorizedValues).join(', ')}`)
+  }
+  return {
+    errors,
+    valid: errors.length === 0,
+  };
+};
+
+const validateClass = (value) => {
+  const errors = [];
+  const authorizedValues = {
+    1: true,
+    2: true,
+    3: true
+  }
+  if(!authorizedValues[value]){
+    errors.push(`invalid value for sex : values must be one of ${Object.keys(authorizedValues).join(', ')}`)
+  }
+  return {
+    errors,
+    valid: errors.length === 0,
+  };
+};
+
 
 const validateStatsType = (value) => {
   const errors = [];
@@ -200,4 +233,6 @@ module.exports = {
   validateNumeric,
   validateBoolean,
   validateStatsType,
+  validateSex,
+  validateClass
 };

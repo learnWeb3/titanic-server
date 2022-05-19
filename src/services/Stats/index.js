@@ -1,9 +1,11 @@
-const { standardDeviation, mean } = require("simple-statistics");
+const { compare } = require("bcrypt");
+const { standardDeviation, mean, max } = require("simple-statistics");
 
 module.exports = class Stats {
   constructor(passengerModel) {
     this._passengerModel = passengerModel;
   }
+
 
   async passengerClasses() {
     return await this._passengerModel.aggregate([
@@ -66,98 +68,98 @@ module.exports = class Stats {
   }
 
   async genderAnalysis(passengersSexes = []) {
-    const sexesAnalytics = {};
+    const sexesAnalytics = {
+      passengerRepartition: passengersSexes,
+      deathRepartition: null,
+      agesDistribution: {
+        died: null,
+        survived: null,
+      },
+    };
     for (const passengerSex of passengersSexes) {
       const aggregate = await this._passengerModel.aggregate([
+        { $match: { sex: passengerSex.sex } },
         {
-          $match: { sex: passengerSex.sex },
-        },
-        {
-          $group: { _id: "$class", count: { $sum: 1 } },
+          $group: { _id: "$survived", count: { $sum: 1 } },
         },
         {
           $project: {
             _id: 0,
-            class: "$_id",
+            survived: "$_id",
             count: 1,
           },
         },
         {
           $sort: {
-            class: 1,
+            survived: 1,
           },
         },
       ]);
 
-      const formattedAggregate = aggregate.reduce((mappingObj, row) => {
-        mappingObj[row.class] = {
-          count: row.count,
-          survival: {},
-        };
-        return mappingObj;
-      }, {});
-
-      sexesAnalytics[passengerSex.sex] = {
-        count: passengerSex.count,
-        classes: formattedAggregate,
-        ageDistribution: await this._ageDistribution({
-          sex: passengerSex.sex,
-        }),
+      sexesAnalytics.deathRepartition = {
+        ...sexesAnalytics.deathRepartition,
+        [passengerSex.sex]: aggregate,
       };
-
-      for (const passengerClass of aggregate) {
-        const aggregate = await this._passengerModel.aggregate([
-          { $match: { sex: passengerSex.sex, class: passengerClass.class } },
-          {
-            $group: { _id: "$survived", count: { $sum: 1 } },
-          },
-          {
-            $project: {
-              _id: 0,
-              survived: "$_id",
-              count: 1,
+      sexesAnalytics.agesDistribution = {
+        died: {
+          ...sexesAnalytics.agesDistribution.died,
+          [passengerSex.sex]: await this._ageDistribution({
+            age: {
+              $gte: 1,
             },
-          },
-          {
-            $sort: {
-              survived: 1,
+            survived: false,
+            sex: passengerSex.sex,
+          }),
+        },
+        survived: {
+          ...sexesAnalytics.agesDistribution.survived,
+          [passengerSex.sex]: await this._ageDistribution({
+            age: {
+              $gte: 1,
             },
-          },
-        ]);
-
-        const formattedAggregate = {};
-
-        for (const aggregateItem of aggregate) {
-          formattedAggregate[aggregateItem.survived ? "survived" : "died"] = {
-            count: aggregateItem.count,
-            ageDistribution: await this._ageDistribution({
-              sex: passengerSex.sex,
-              class: passengerClass.class,
-              survived: aggregateItem.survived,
-            }),
-          };
-        }
-
-        sexesAnalytics[passengerSex.sex].classes[
-          passengerClass.class
-        ].survival = formattedAggregate;
-
-        sexesAnalytics[passengerSex.sex].classes[
-          passengerClass.class
-        ].ageDistribution = await this._ageDistribution({
-          sex: passengerSex.sex,
-          class: passengerClass.class,
-        });
-      }
+            survived: true,
+            sex: passengerSex.sex,
+          }),
+        },
+      };
     }
 
     return sexesAnalytics;
   }
 
   async classesAnalysis(passengerClasses) {
-    const classesAnalysis = {};
+    const classesAnalysis = {
+      passengerRepartition: passengerClasses,
+      deathRepartition: null,
+      genderRepartition: null,
+      agesDistribution: {
+        died: null,
+        survived: null,
+      },
+    };
     for (const passengerClass of passengerClasses) {
-      const aggregate = await this._passengerModel.aggregate([
+      const aggregateDeath = await this._passengerModel.aggregate([
+        {
+          $match: { class: passengerClass.class },
+        },
+        {
+          $group: { _id: "$survived", count: { $sum: 1 } },
+        },
+        {
+          $project: {
+            _id: 0,
+            survived: "$_id",
+            count: 1,
+          },
+        },
+        {
+          $sort: {
+            survived: 1,
+          },
+        },
+      ]);
+
+      const aggregateGender = await this._passengerModel.aggregate([
         {
           $match: { class: passengerClass.class },
         },
@@ -177,64 +179,36 @@ module.exports = class Stats {
           },
         },
       ]);
-      const formattedAggregate = aggregate.reduce((mappingObj, row) => {
-        mappingObj[row.sex] = {
-          count: row.count,
-        };
-        return mappingObj;
-      }, {});
-      classesAnalysis[passengerClass.class] = {
-        count: passengerClass.count,
-        sexes: formattedAggregate,
-        ageDistribution: await this._ageDistribution({
-          class: passengerClass.class,
-        }),
+      classesAnalysis.deathRepartition = {
+        ...classesAnalysis.deathRepartition,
+        [passengerClass.class]: aggregateDeath,
       };
-
-      for (const passengerSex of aggregate) {
-        const aggregate = await this._passengerModel.aggregate([
-          {
-            $match: { sex: passengerSex.sex, class: passengerClass.class },
-          },
-          {
-            $group: { _id: "$survived", count: { $sum: 1 } },
-          },
-          {
-            $project: {
-              _id: 0,
-              survived: "$_id",
-              count: 1,
+      classesAnalysis.genderRepartition = {
+        ...classesAnalysis.genderRepartition,
+        [passengerClass.class]: aggregateGender,
+      };
+      classesAnalysis.agesDistribution = {
+        died: {
+          ...classesAnalysis.agesDistribution.died,
+          [passengerClass.class]: await this._ageDistribution({
+            age: {
+              $gte: 1,
             },
-          },
-          {
-            $sort: {
-              survived: 1,
+            survived: false,
+            class: passengerClass.class,
+          }),
+        },
+        survived: {
+          ...classesAnalysis.agesDistribution.survived,
+          [passengerClass.class]: await this._ageDistribution({
+            age: {
+              $gte: 1,
             },
-          },
-        ]);
-
-        const formattedAggregate = {};
-        for (const aggregateItem of aggregate) {
-          formattedAggregate[aggregateItem.survived ? "survived" : "died"] = {
-            count: aggregateItem.count,
-            ageDistribution: await this._ageDistribution({
-              survived: aggregateItem.survived,
-              class: passengerClass.class,
-              sex: passengerSex.sex,
-            }),
-          };
-        }
-
-        classesAnalysis[passengerClass.class].sexes[passengerSex.sex].survival =
-          formattedAggregate;
-
-        classesAnalysis[passengerClass.class].sexes[
-          passengerSex.sex
-        ].ageDistribution = await this._ageDistribution({
-          class: passengerClass.class,
-          sex: passengerSex.sex,
-        });
-      }
+            survived: true,
+            class: passengerClass.class,
+          }),
+        },
+      };
     }
     return classesAnalysis;
   }
@@ -264,6 +238,9 @@ module.exports = class Stats {
     const ages = aggregate.map((element) => element.age);
     const stdDeviation = standardDeviation(ages);
     const _mean = mean(ages);
+    const _maxCount = aggregate.reduce((max, element)=>element.count > max ? element.count : max , 0);
+
+    // create slices using standardDeviations to plots count from -3stdDeviation to +3 stdDeviation
 
     return {
       data: aggregate,
@@ -271,6 +248,7 @@ module.exports = class Stats {
       min: aggregate[0].age,
       max: aggregate[aggregate.length - 1].age,
       mean: _mean,
+      maxCount: _maxCount
     };
   }
 };

@@ -6,7 +6,6 @@ module.exports = class Stats {
     this._passengerModel = passengerModel;
   }
 
-
   async passengerClasses() {
     return await this._passengerModel.aggregate([
       {
@@ -131,6 +130,10 @@ module.exports = class Stats {
     const classesAnalysis = {
       passengerRepartition: passengerClasses,
       deathRepartition: null,
+      deathRepartitionByGenderAndClasses: {
+        male: {},
+        female: {},
+      },
       genderRepartition: null,
       agesDistribution: {
         died: null,
@@ -179,6 +182,45 @@ module.exports = class Stats {
           },
         },
       ]);
+
+      for (const passengerClass of passengerClasses) {
+        for (const passengerGender of aggregateGender) {
+          const aggregateByGenderAndClasses =
+            await this._passengerModel.aggregate([
+              {
+                $match: {
+                  class: passengerClass.class,
+                  sex: passengerGender.sex,
+                },
+              },
+              {
+                $group: { _id: "$survived", count: { $sum: 1 } },
+              },
+              {
+                $project: {
+                  _id: 0,
+                  survived: "$_id",
+                  count: 1,
+                },
+              },
+              {
+                $sort: {
+                  survived: 1,
+                },
+              },
+            ]);
+
+          classesAnalysis.deathRepartitionByGenderAndClasses[
+            passengerGender.sex
+          ] = {
+            ...classesAnalysis.deathRepartitionByGenderAndClasses[
+              passengerGender.sex
+            ],
+            [passengerClass.class]: aggregateByGenderAndClasses,
+          };
+        }
+      }
+
       classesAnalysis.deathRepartition = {
         ...classesAnalysis.deathRepartition,
         [passengerClass.class]: aggregateDeath,
@@ -236,19 +278,47 @@ module.exports = class Stats {
     ]);
 
     const ages = aggregate.map((element) => element.age);
+    const generateSlices = (step = 10, min = 0, max = 90) => {
+      const slices = [];
+      for (let i = min; i < max; i += step) {
+        slices.push({
+          min: i,
+          max: i + step,
+        });
+      }
+      return slices;
+    };
+    const agesSlices = generateSlices(10, 0, 90);
+
+    for (let i = 0; i < agesSlices.length; i++) {
+      agesSlices[i] = {
+        ...agesSlices[i],
+        age: `${agesSlices[i].min}-${agesSlices[i].max}`,
+        count: aggregate.reduce((sum, { age, count }) => {
+          if (age > agesSlices[i].min && age < agesSlices[i].max) {
+            return sum + count;
+          }
+          return sum;
+        }, 0),
+      };
+    }
+
     const stdDeviation = standardDeviation(ages);
     const _mean = mean(ages);
-    const _maxCount = aggregate.reduce((max, element)=>element.count > max ? element.count : max , 0);
+    const _maxCount = aggregate.reduce(
+      (max, element) => (element.count > max ? element.count : max),
+      0
+    );
 
     // create slices using standardDeviations to plots count from -3stdDeviation to +3 stdDeviation
 
     return {
-      data: aggregate,
+      data: agesSlices,
       stdDeviation: stdDeviation,
       min: aggregate[0].age,
       max: aggregate[aggregate.length - 1].age,
       mean: _mean,
-      maxCount: _maxCount
+      maxCount: _maxCount,
     };
   }
 };

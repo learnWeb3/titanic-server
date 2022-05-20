@@ -15,6 +15,7 @@ const {
   validateSex,
   validateClass,
   validateNotNull,
+  validateNumeric,
 } = require("../validators");
 
 const passengersRouter = express.Router();
@@ -44,8 +45,8 @@ passengersRouter.post(
   }),
   validateBodyParams({
     sex: (value) => mergeValidate(value, [validateNotEmpty, validateSex]),
-    ageMax: validateNotNull,
-    ageMin: validateNotNull,
+    ageMax: validateNumeric,
+    ageMin: validateNumeric,
     class: (value) => mergeValidate(value, [validateNotNull, validateClass]),
   }),
   async (req, res, next) => {
